@@ -328,7 +328,7 @@ namespace Mesh::FileFormat::Wavefront {
 							edge->texture = p_mesh->texture[vt_index.value() - 1];
 						}
 					}
-					else {
+					else if ( vertex.size() == 3 ) {
 						// Vertex normal and possible vertex texture
 						// Vertex texture
 						if ( vertex[1].size() > 0 ) {
