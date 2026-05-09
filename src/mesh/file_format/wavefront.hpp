@@ -28,7 +28,6 @@
 #include "./../../mesh/data.hpp"
 #include "./../../mesh/half-edge.hpp"
 #include "./../../utility/convert.hpp"
-#include "./../../utility/get_index.hpp"
 #include "./../../utility/tokenise.hpp"
 
 namespace Mesh::FileFormat::Wavefront {
@@ -140,14 +139,14 @@ namespace Mesh::FileFormat::Wavefront {
 			file << "f";
 			// Polygon vertices
 			for ( auto& edge : polygon->edge ) {
-				auto vertex = Utility::GetIndex( edge->vertex, p_mesh->vertex );
+				auto vertex = p_mesh->index_vertex( edge->vertex );
 				// Vertex (mandatory)
 				if ( vertex.has_value() ) {
 					file << " " << vertex.value() + 1;
 				}
 				// Vertex texture (optional)
 				if ( f_texture ) {
-					auto vt = Utility::GetIndex( edge->texture, p_mesh->texture );
+					auto vt = p_mesh->index_texture( edge->texture );
 					if ( vt.has_value() )
 						file << "/" << vt.value() + 1;
 					else
@@ -407,6 +406,7 @@ namespace Mesh::FileFormat::Wavefront {
 		std::cout << "Edge     : " << p_mesh->edge.size() << '\n';
 		std::cout << "Polygon  : " << p_mesh->polygon.size() << '\n';
 
+		p_mesh->sort_data();
 		p_mesh->connect_shared_edges( f_connected );
 		return p_mesh;
 	};

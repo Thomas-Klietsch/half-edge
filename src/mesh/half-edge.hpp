@@ -17,9 +17,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,10 +33,10 @@ namespace Mesh {
 
 	public:
 
-		// List of unique 3D vertices
+		// List of unique sorted 3D vertices
 		std::vector<std::shared_ptr<Mesh::Data::Vertex>> vertex;
 
-		// List of unique 3D texture vertices
+		// List of unique sorted 3D texture vertices
 		std::vector<std::shared_ptr<Mesh::Data::Texture>> texture;
 
 		// Unordered
@@ -61,21 +63,32 @@ namespace Mesh {
 			, material_name( p_input->material_name )
 		{};
 
-		// Adds a Double3 to the unorder vertex vector, if it does not exist.
+		// Adds a Double3 to the order vertex vector, if it does not exist.
 		// Return is the memory address of the (added) vertex.
 		std::shared_ptr<Mesh::Data::Vertex>& add_vertex(
 			Double3 const& value,
 			bool const f_static = false
 		) {
-			// TODO ordered vector, and lower_bound search
+			// Find lowest index which contain value
+			auto index = std::lower_bound( vertex.begin(), vertex.end(), value, IsLesser<Mesh::Data::Vertex> );
+			// End of list reach, e.g. value is not in the list
+			if ( index == vertex.end() ) {
+				// Everything is less than value, add it at the end
+				vertex.emplace_back( std::make_shared<Mesh::Data::Vertex>( value, f_static ) );
+				return vertex[vertex.size() - 1];
+			}
 
-			// Slow search
-			for ( std::size_t index{ 0 }; index < vertex.size(); ++index )
-				if ( vertex[index]->location == value )
-					return vertex[index];
+			// Memory location used by list (vector) might change on insert,
+			// so result is calculated first
+			std::size_t const result = index - vertex.begin();
 
-			vertex.emplace_back( std::make_shared<Mesh::Data::Vertex>( value, f_static ) );
-			return vertex[vertex.size() - 1];
+			// Lesser, but not equal; insert it
+			if ( value != vertex[result]->location )
+				vertex.insert( index, std::make_shared<Mesh::Data::Vertex>( value, f_static ) );
+
+			// Set state, true will override false
+			vertex[result]->f_static |= f_static;
+			return vertex[result];
 		};
 
 		// Adds a Double3 to the texture vector, if it does not exist
@@ -83,15 +96,24 @@ namespace Mesh {
 		std::shared_ptr<Mesh::Data::Texture>& add_texture(
 			Double3 const& value
 		) {
-			// TODO ordered vector, and lower_bound search
+			// Find lowest index which contain value
+			auto index = std::lower_bound( texture.begin(), texture.end(), value, IsLesser<Mesh::Data::Texture> );
+			// End of list reach, e.g. value is not in the list
+			if ( index == texture.end() ) {
+				// Everything is less than value, add it at the end
+				texture.emplace_back( std::make_shared<Mesh::Data::Texture>( value ) );
+				return texture[texture.size() - 1];
+			}
 
-			// Slow search
-			for ( std::size_t index{ 0 }; index < texture.size(); ++index )
-				if ( texture[index]->location == value )
-					return texture[index];
+			// Memory location used by list (vector) might change on insert,
+			// so result is calculated first
+			std::size_t const result = index - texture.begin();
 
-			texture.emplace_back( std::make_shared<Mesh::Data::Texture>( value ) );
-			return texture[texture.size() - 1];
+			// Lesser, but not equal; insert it
+			if ( value != texture[result]->location )
+				texture.insert( index, std::make_shared<Mesh::Data::Texture>( value ) );
+
+			return texture[result];
 		};
 
 		// Create and add polygon to list
@@ -170,6 +192,12 @@ namespace Mesh {
 			}
 		};
 
+		// Imported data might not be sorted, sort it.
+		void sort_data() {
+			std::sort( vertex.begin(), vertex.end(), IsLesserSort<Mesh::Data::Vertex> );
+			std::sort( texture.begin(), texture.end(), IsLesserSort<Mesh::Data::Texture> );
+		};
+
 		// Find all shared edges, and set twin state.
 		bool connect_shared_edges(
 			// Set to true to validate that all edges have a twin
@@ -222,6 +250,102 @@ namespace Mesh {
 					}
 
 			return true;
+		};
+
+		// Returns index for 'search', if found in vertex list.
+		std::optional<std::size_t> index_vertex(
+			std::shared_ptr<Mesh::Data::Vertex> const& search
+		) const {
+			// Find lowest index which contain value
+			auto index = std::lower_bound( vertex.begin(), vertex.end(), search->location, IsLesser<Mesh::Data::Vertex> );
+			// End of list reach, e.g. value is not in the list
+			if ( index == vertex.end() )
+				return std::nullopt;
+
+			std::size_t const result = index - vertex.begin();
+
+			// Lesser, but not equal
+			if ( search != vertex[result] )
+				return std::nullopt;
+
+			return result;
+		};
+
+		// Returns index for 'search', if found in texture list.
+		std::optional<std::size_t> index_texture(
+			std::shared_ptr<Mesh::Data::Texture> const& search
+		) const {
+			// Find lowest index which contain value
+			auto index = std::lower_bound( texture.begin(), texture.end(), search->location, IsLesser<Mesh::Data::Texture> );
+			// End of list reach, e.g. value is not in the list
+			if ( index == texture.end() )
+				return std::nullopt;
+
+			std::size_t const result = index - texture.begin();
+
+			// Lesser, but not equal
+			if ( search != texture[result] )
+				return std::nullopt;
+
+			return result;
+		};
+
+	private:
+
+		// Compare evaluation, used for sorted list insertion.
+		template<typename T>
+		static bool IsLesser(
+			std::shared_ptr<T> const& l,
+			Double3 const& r
+		) {
+			Double3 const diff = l->location - r;
+
+			// Test X
+			if ( diff.x < -EPSILON_EQUAL )
+				return true;
+
+			// X is equal
+			if ( std::abs( diff.x ) <= EPSILON_EQUAL ) {
+				// Test Y
+				if ( diff.y < -EPSILON_EQUAL )
+					return true;
+				// Y is equal
+				if ( std::abs( diff.y ) <= EPSILON_EQUAL )
+					// Test Z
+					if ( diff.z < -EPSILON_EQUAL )
+						return true;
+			}
+
+			// Larger or equal
+			return false;
+		};
+
+		// Compare evaluation, used for sorting list.
+		template<typename T>
+		static bool IsLesserSort(
+			std::shared_ptr<T> const& l,
+			std::shared_ptr<T> const& r
+		) {
+			Double3 const diff = l->location - r->location;
+
+			// Test X
+			if ( diff.x < -EPSILON_EQUAL )
+				return true;
+
+			// X is equal
+			if ( std::abs( diff.x ) <= EPSILON_EQUAL ) {
+				// Test Y
+				if ( diff.y < -EPSILON_EQUAL )
+					return true;
+				// Y is equal
+				if ( std::abs( diff.y ) <= EPSILON_EQUAL )
+					// Test Z
+					if ( diff.z < -EPSILON_EQUAL )
+						return true;
+			}
+
+			// Larger or equal
+			return false;
 		};
 
 	};
