@@ -20,15 +20,13 @@ More examples of basic half-edge usage are included in the main.cpp file.
 
 ##### Dependencies
 
-- C++17
+- C++17 (C++20 when using std::numbers)
 
 ##### To do
 
 Support more file formats.
 
 Pre-calculation of flat shaded vertex normals, when exporting. 
-
-Sorted lists of 3D data, for faster processing.
 
 Improved edge connecting, and testing.
 

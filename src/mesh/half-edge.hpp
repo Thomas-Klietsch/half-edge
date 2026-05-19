@@ -39,10 +39,10 @@ namespace Mesh {
 		// List of unique sorted 3D texture vertices
 		std::vector<std::shared_ptr<Mesh::Data::Texture>> texture;
 
-		// Unordered
+		// Unordered, adding edges directly is not recommended
 		std::vector<std::shared_ptr<Mesh::Data::Edge>> edge;
 
-		// Unordered
+		// Unordered, using add_polygon() is recommended
 		std::vector<std::shared_ptr<Mesh::Data::Polygon>> polygon;
 
 		// Material library file name(s)
@@ -55,13 +55,14 @@ namespace Mesh {
 
 		HalfEdge() {};
 
-		// Constructor which copy material data
+		// Constructor with copy of material data
 		HalfEdge(
 			std::unique_ptr<HalfEdge> const& p_input
 		)
 			: material_library( p_input->material_library )
 			, material_name( p_input->material_name )
-		{};
+		{
+		};
 
 		// Adds a Double3 to the order vertex vector, if it does not exist.
 		// Return is the memory address of the (added) vertex.
@@ -160,12 +161,12 @@ namespace Mesh {
 
 			// Multiple usage
 			std::size_t index;
+
 			// .size() is the number of elements.
 			// If zero (0), then index-->0 evaluate to false, and loop is skipped/exited.
 			// If (for example) 5, then index becomes 4, which is the 5th element.
 			// When index is one (1), then index-->0 is true, after evaluation
 			// index becomes zero, which is the first element.
-
 			index = texture.size();
 			for ( ; index-- > 0;) {
 				std::cout << index << '\n';
@@ -203,10 +204,9 @@ namespace Mesh {
 			// Set to true to validate that all edges have a twin
 			bool const f_connected = true
 		) {
-			// Check for nullptr, should never happen
+			// Check for nullptr in list, should never happen
 			for ( auto& e : edge )
-				if ( e == nullptr )
-				{
+				if ( e == nullptr ) {
 					std::cout << "Fatal error! Connect shared edges.\n";
 					std::cout << "One (or more) edge(s) is a nullptr!\n";
 					std::cout << "Use .clean_up() on data first, to avoid this happening.\n";
