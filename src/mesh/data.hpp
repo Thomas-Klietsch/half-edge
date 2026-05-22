@@ -46,7 +46,7 @@ namespace Mesh::Data {
 	struct Vertex {
 
 		// Mandatory
-		Double3 location;
+		Double3 location{ Double3::Zero };
 
 		// Optional vertex normal, used for smooth shading.
 		// Loaded from file if available, and (re)calculated during export.
@@ -54,6 +54,8 @@ namespace Mesh::Data {
 
 		// Setting this to true, will treat the vertex as a boundary.
 		bool f_static{ false };
+
+		Vertex() {};
 
 		Vertex(
 			Double3 const& location,

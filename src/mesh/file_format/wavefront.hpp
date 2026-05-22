@@ -142,29 +142,29 @@ namespace Mesh::FileFormat::Wavefront {
 				auto vertex = p_mesh->index_vertex( edge->vertex );
 				// Vertex (mandatory)
 				if ( vertex.has_value() ) {
-					file << " " << vertex.value() + 1;
+					file << ' ' << vertex.value() + 1;
 				}
 				// Vertex texture (optional)
 				if ( f_texture ) {
 					auto vt = p_mesh->index_texture( edge->texture );
 					if ( vt.has_value() )
-						file << "/" << vt.value() + 1;
+						file << '/' << vt.value() + 1;
 					else
-						file << "/";
+						file << '/';
 				}
 				// Vertex normal (optional)
 				if ( f_vertex_normal ) {
 					// If no vertex texture, add empty separator
 					if ( !f_texture )
-						file << "/";
+						file << '/';
 
 					if ( state_smooth ) {
 						// Vertex and vertex normal have same index
-						file << "/" << vertex.value() + 1;
+						file << '/' << vertex.value() + 1;
 					}
 					else {
 						// Flat shading
-						file << "/" << offset_vertex_normal;
+						file << '/' << offset_vertex_normal;
 					}
 				}
 			}
@@ -197,7 +197,7 @@ namespace Mesh::FileFormat::Wavefront {
 		std::unique_ptr<Mesh::HalfEdge> p_mesh = std::make_unique<Mesh::HalfEdge>();
 
 		// Optional vertex normal data (from file)
-		std::vector<Double3> vn;
+		std::vector<Double3> vn; // TODO smart ointer
 
 		// Values that might change during parsing of the file
 		// Face(s) might be marked as smooth (render)
@@ -397,6 +397,8 @@ namespace Mesh::FileFormat::Wavefront {
 			}
 		} // End of file parsing
 
+		file.close();
+		
 		// Clear vertex normal data
 		vn.clear();
 		vn.shrink_to_fit();

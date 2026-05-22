@@ -23,6 +23,7 @@
 #include "./../mesh/half-edge.hpp"
 #include "./../mesh/file_format/common.hpp"
 // Supported file formats
+#include "./../mesh/file_format/stanford.hpp"
 #include "./../mesh/file_format/wavefront.hpp"
 
 namespace Mesh {
@@ -75,15 +76,8 @@ namespace Mesh {
 		if ( p_mesh->material_name.size() == 0 )
 			p_mesh->material_name = { "default_mesh_material" };
 
-		// True if any polygon is marked for smooth shading
-		bool f_smooth{ false };
-		if ( f_vertex_normal != Mesh::VertexNormal::Off )
-			// Check if any polygon is marked as smooth shading
-			for ( auto const& p : p_mesh->polygon )
-				if ( p->f_smooth ) {
-					f_smooth = true;
-					break;
-				}
+		// True if smooth shading (vertex normals) is used.
+		bool const f_smooth = f_vertex_normal != Mesh::VertexNormal::Off;
 
 		// TODO avoid recalculation for multiple exports?
 		if ( f_smooth ) {
@@ -91,48 +85,64 @@ namespace Mesh {
 			for ( auto& v : p_mesh->vertex )
 				v->normal = Double3::Zero;
 
-			// Add all polygon normals to their vertices
-			for ( auto p : p_mesh->polygon )
-				// Skip flat
-				if ( p->f_smooth )
-					switch ( f_vertex_normal ) {
-						default: { break; }
-						case Mesh::VertexNormal::Off: { break; }
-						case Mesh::VertexNormal::Common: {
+			// Overwrite flat shading (Stanford does not support mixed shading)
+			bool const f_include_flat = ( file_format == Mesh::Type::Stanford );
+
+			switch ( f_vertex_normal ) {
+				default: { break; }
+				case Mesh::VertexNormal::Off: { break; }
+				case Mesh::VertexNormal::Common: {
+					// Add all polygon normals to their vertices
+					for ( auto p : p_mesh->polygon )
+						// Skip flat, unless override
+						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->unit_normal();
 							// Go through edges to get vertices, and update normal
 							for ( auto e : p->edge )
 								e->vertex->normal += polygon_normal;
-							break;
 						}
-						case Mesh::VertexNormal::Area: {
+					break;
+				}
+				case Mesh::VertexNormal::Area: {
+					for ( auto p : p_mesh->polygon )
+						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->weighted_normal();
 							for ( auto e : p->edge )
 								e->vertex->normal += polygon_normal;
-							break;
 						}
-						case Mesh::VertexNormal::Angle: {
+					break;
+				}
+				case Mesh::VertexNormal::Angle: {
+					for ( auto p : p_mesh->polygon )
+						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->unit_normal();
 							for ( auto e : p->edge )
 								e->vertex->normal += polygon_normal * e->angle();
-							break;
 						}
-						case Mesh::VertexNormal::Weighted: {
+					break;
+				}
+				case Mesh::VertexNormal::Weighted: {
+					for ( auto p : p_mesh->polygon )
+						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->weighted_normal();
 							for ( auto e : p->edge )
 								e->vertex->normal += polygon_normal * e->angle();
-							break;
 						}
-						case Mesh::VertexNormal::Experimental: {
+					break;
+				}
+				case Mesh::VertexNormal::Experimental: {
+					for ( auto p : p_mesh->polygon )
+						if ( p->f_smooth || f_include_flat ) {
 							for ( auto e : p->edge ) {
 								Double3 const v0 = e->vertex->location;
 								Double3 const v1 = e->next->vertex->location;
 								Double3 const v2 = e->previous->vertex->location;
 								e->vertex->normal += ( ( v1 - v0 ).cross( v2 - v0 ) ).normalise();
 							}
-							break;
 						}
-					}
+					break;
+				}
+			}
 
 			// Normalise vertex normals
 			for ( auto v : p_mesh->vertex )
@@ -151,6 +161,18 @@ namespace Mesh {
 		}
 
 		switch ( file_format ) {
+			case Mesh::Type::Stanford: {
+				// Stanford does not support mixed texturing.
+				if ( f_texture )
+					// Check if all polygon are textured
+					for ( auto const& p : p_mesh->polygon )
+						if ( !p->is_textured() ) {
+							f_texture = false;
+							break;
+						}
+
+				return Mesh::FileFormat::Stanford::Export( file_name, p_mesh, f_smooth, f_texture );
+			}
 			case Mesh::Type::Wavefront:
 				return Mesh::FileFormat::Wavefront::Export( file_name, p_mesh, f_smooth, f_texture );
 		}

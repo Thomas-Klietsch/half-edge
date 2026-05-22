@@ -6,6 +6,7 @@
 #include "./../mesh/half-edge.hpp"
 #include "./../mesh/file_format/common.hpp"
 // Supported file formats
+#include "./../mesh/file_format/stanford.hpp"
 #include "./../mesh/file_format/wavefront.hpp"
 
 namespace Mesh {
@@ -22,6 +23,8 @@ namespace Mesh {
 		}
 
 		switch ( file_format ) {
+			case Mesh::Type::Stanford:
+				return Mesh::FileFormat::Stanford::Import( file_name, f_connected );
 			case Mesh::Type::Wavefront:
 				return Mesh::FileFormat::Wavefront::Import( file_name, f_connected );
 		}

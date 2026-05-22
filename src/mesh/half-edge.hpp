@@ -235,6 +235,10 @@ namespace Mesh {
 							// Define twins
 							edge[i]->twin = edge[k];
 							edge[k]->twin = edge[i];
+							// FIXME set hard edge
+							bool const f_hard_edge = edge[i]->is_boundary() | edge[k]->is_boundary();
+							edge[i]->f_static = f_hard_edge;
+							edge[k]->f_static = f_hard_edge;
 							break;
 						}
 					}
