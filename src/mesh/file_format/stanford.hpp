@@ -30,8 +30,7 @@
 #include "./../../utility/convert.hpp"
 #include "./../../utility/tokenise.hpp"
 
-// Greg Turk
-// https://paulbourke.net/dataformats/ply/
+// Format created Greg Turk (1990)
 
 namespace Mesh::FileFormat::Stanford {
 
@@ -49,12 +48,12 @@ namespace Mesh::FileFormat::Stanford {
 		}
 
 		if ( file_name.size() == 0 ) {
-			std::cout << "Wavefront::Export file name is missing.\n";
+			std::cout << "Stanford::Export file name is missing.\n";
 			return false;
 		}
 
 		if ( p_mesh->polygon.size() < 1 || p_mesh->vertex.size() < 3 ) {
-			std::cout << "Not enough data for Wavefront export: \"" << file_name << "\"\n";
+			std::cout << "Not enough data for Stanford export: \"" << file_name << "\"\n";
 			return false;
 		}
 
@@ -62,7 +61,7 @@ namespace Mesh::FileFormat::Stanford {
 		file.open( file_name, std::ios::trunc );
 		// Check if file is open
 		if ( !file.is_open() ) {
-			std::cout << "Wavefront::Export could not open output file: \"" << file_name << "\"\n";
+			std::cout << "Stanford::Export could not open output file: \"" << file_name << "\"\n";
 			return false;
 		}
 
@@ -104,7 +103,7 @@ namespace Mesh::FileFormat::Stanford {
 			file << "property float t\n";
 		}
 
-		// Polygon count and format format
+		// Polygon count and format
 		file << "element face " << p_mesh->polygon.size() << '\n';
 		file << "property list uchar uint vertex_indices\n";
 
@@ -114,9 +113,9 @@ namespace Mesh::FileFormat::Stanford {
 		// Write data
 		if ( f_vertex_texture ) {
 			// Vertex texture needs special treatment during export,
-			// since it is not a per vertex value (like normals)
+			// since it is not a per vertex value (like normals).
 
-			// Write vertices
+			// Write vertices, using edges from polygons.
 			for ( auto const& p : p_mesh->polygon ) {
 				for ( auto& edge : p->edge ) {
 					file << edge->vertex->location;
@@ -127,7 +126,7 @@ namespace Mesh::FileFormat::Stanford {
 				}
 			}
 
-			// Write polygons
+			// Write polygons, using edges.
 			std::uint32_t index{ 0 };
 			for ( auto const& p : p_mesh->polygon ) {
 				file << p->edge.size();
@@ -135,7 +134,6 @@ namespace Mesh::FileFormat::Stanford {
 					file << ' ' << index++;
 				file << '\n';
 			}
-
 		}
 		else {
 			// Write vertices
@@ -183,7 +181,6 @@ namespace Mesh::FileFormat::Stanford {
 		// Data storage
 		std::unique_ptr<Mesh::HalfEdge> p_mesh = std::make_unique<Mesh::HalfEdge>();
 
-		// FIXME
 		std::string line;
 
 		// Check PLY header
@@ -210,9 +207,11 @@ namespace Mesh::FileFormat::Stanford {
 			}
 		}
 
+		// Number, read from file, of vertices and polygons.
 		std::uint32_t n_vertex{ 0 };
 		std::uint32_t n_polygon{ 0 };
 
+		// State read from file.
 		bool f_vertex_normal{ false };
 		bool f_vertex_texture{ false };
 
@@ -270,7 +269,8 @@ namespace Mesh::FileFormat::Stanford {
 			if ( x.has_value() && y.has_value() && z.has_value() )
 				vertex.location = Double3( x.value(), y.value(), z.value() );
 			else {
-				//FIXME
+				std::cout << "Invalid vertex data.\n";
+				return nullptr;
 			}
 
 			if ( f_vertex_normal ) {
@@ -281,7 +281,8 @@ namespace Mesh::FileFormat::Stanford {
 				if ( nx.has_value() && ny.has_value() && nz.has_value() )
 					vertex.normal = Double3( nx.value(), ny.value(), nz.value() );
 				else {
-					//FIXME
+					std::cout << "Invalid vertex normal data.\n";
+					return nullptr;
 				}
 
 				if ( f_vertex_texture ) {
@@ -290,7 +291,8 @@ namespace Mesh::FileFormat::Stanford {
 					if ( s.has_value() && t.has_value() )
 						p_mesh->texture.emplace_back( std::make_shared<Mesh::Data::Texture>( Double3( s.value(), t.value(), 0. ) ) );
 					else {
-						//FIXME
+						std::cout << "Invalid vertex texture data.\n";
+						return nullptr;
 					}
 				}
 			}
@@ -300,13 +302,15 @@ namespace Mesh::FileFormat::Stanford {
 				if ( s.has_value() && t.has_value() )
 					p_mesh->texture.emplace_back( std::make_shared<Mesh::Data::Texture>( Double3( s.value(), t.value(), 0. ) ) );
 				else {
-					//FIXME
+					std::cout << "Invalid vertex texture data.\n";
+					return nullptr;
 				}
 			}
 
-			// DEBUG p_mesh->vertex.emplace_back( std::make_shared<Mesh::Data::Vertex>( vertex ) );
+			// Store data.
 			vertex_list.emplace_back( vertex );
-			
+
+			// Check if all vertices have been read.
 			if ( ++c_vertex == n_vertex )
 				break;
 		} // End of vertex data
@@ -318,40 +322,42 @@ namespace Mesh::FileFormat::Stanford {
 
 			auto const n_edge = Utility::Integer( token[0] );
 			if ( !n_edge.has_value() || n_edge < 3 || static_cast<std::size_t>( n_edge.value() ) + 1 != token.size() ) {
-				// FIXME
-				std::cout << "Polygon has invalid data\n";
+				std::cout << "Polygon has mismatched vertex count.\n";
 				return nullptr;
 			}
 
 			// Temporary polygon data
 			std::vector<std::shared_ptr<Mesh::Data::Edge>> data;
 
-			for ( std::uint32_t i{ 1 }; i < token.size();++i ) {
+			// Process vertices
+			for ( std::size_t i{ 1 }; i < token.size(); ++i ) {
 				auto v_index = Utility::Integer( token[i] );
 				if ( !v_index.has_value() || v_index.value() < 0 || static_cast<std::uint32_t>( v_index.value() ) > n_vertex ) {
-					// FIXME
-					std::cout << "Polygon has invalid integer\n";
+					std::cout << "Polygon data has invalid integer.\n";
 					return nullptr;
 				}
 
-// DEBUG				auto const& v = p_mesh->vertex[v_index.value()];
 				auto& v = p_mesh->add_vertex( vertex_list[v_index.value()].location );
-				if (f_vertex_normal)
+				if ( f_vertex_normal )
 					v->normal = vertex_list[v_index.value()].normal;
-				// No vertex texture (UV)
+				// No vertex texture (UV), not a hard edge.
 				Mesh::Data::Edge edge( v, false );
+				// If available add texture data.
 				if ( f_vertex_texture )
 					edge.texture = p_mesh->texture[v_index.value()];
+				// Store data.
 				data.emplace_back( std::make_shared<Mesh::Data::Edge>( edge ) );
 			}
 
 			// No material support, all polygons have the same shading.
 			p_mesh->add_polygon( data, 0, f_vertex_normal );
 
+			// Check if all polygons have been read.
 			if ( ++c_polygon == n_polygon )
 				break;
 		} // End of polygon data
 
+		// Any remaining data is not supported.
 		file.close();
 
 		std::cout << "Imported : " << file_name << '\n';

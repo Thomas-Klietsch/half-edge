@@ -20,10 +20,16 @@ More examples of basic half-edge usage are included in the main.cpp file.
 
 ##### Mesh file support
 
-| format | material | normal | uv map | edge state |
+| format | material | normal | texture | edge state |
 | --- | --- | --- | --- | --- |
-| Stanford ASCII .ply | No | Yes | Yes | No |
+| Stanford ASCII .ply | Yes | Yes | Yes | No |
+| STL ASCII .stl | No | No | No | No |
 | Wavefront .obj | Yes | Yes | Yes | Yes |
+
+*normal*: Vertex normal.\
+*texture*: Texture coordinate, UV mapping.
+
+Note: STL can only handle triangles.
 
 ##### Dependencies
 
@@ -40,3 +46,5 @@ Improved edge connecting, and testing.
 Test if polygon is convex, and near planar.
 
 More mesh operations.
+
+Support 255+ polygon edges.
