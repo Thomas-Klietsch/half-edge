@@ -28,6 +28,7 @@
 #include "./../../mesh/data.hpp"
 #include "./../../mesh/half-edge.hpp"
 #include "./../../utility/convert.hpp"
+#include "./../../utility/sorted_double3.hpp"
 #include "./../../utility/tokenise.hpp"
 
 namespace Mesh::FileFormat::Wavefront {
@@ -68,24 +69,39 @@ namespace Mesh::FileFormat::Wavefront {
 
 		// Save material library, if defined. Multi lib support
 		if ( p_mesh->material_library.size() )
-			for ( auto& text : p_mesh->material_library )
+			for ( auto const& text : p_mesh->material_library )
 				file << "mtllib " << text << '\n';
 
 		// Write vertices to file
-		for ( auto& v : p_mesh->vertex )
+		for ( auto const& v : p_mesh->vertex )
 			file << "v " << v->location << '\n';
 
-		if ( f_vertex_normal )
-			// Write vertex normals to file, uses same index as vertices
-			for ( auto& v : p_mesh->vertex )
-				file << "vn " << v->normal << '\n';
+		// Create list of all vertex and polygon normals,
+		// this file format can use a mix of them.
+		Utility::SortedDouble3 normal_list;
+		if ( f_vertex_normal ) {
+			// Fill data.
+			// From vertex normal.
+			for ( auto const& v : p_mesh->vertex )
+				if ( v->normal != Double3::Zero )
+					normal_list.add( v->normal );
+			// From flat shaded polygons, e.g. polygon normal
+			for ( auto const& p : p_mesh->polygon )
+				if ( !( p->f_smooth ) ) {
+					Double3 const poly_normal = p->unit_normal();
+					if ( poly_normal != Double3::Zero )
+						normal_list.add( poly_normal );
+				}
 
-		// Offset for polygon vertex normal, used for flat shading
-		std::size_t offset_vertex_normal = p_mesh->vertex.size();
+			auto nl_data = normal_list.access_data();
+			// Write normals to file.
+			for ( auto const& v : nl_data )
+				file << "vn " << v << '\n';
+		}
 
 		if ( f_vertex_texture ) {
 			// Write vertex texture data
-			for ( auto& v : p_mesh->texture )
+			for ( auto const& v : p_mesh->texture )
 				file << "vt " << v->location << '\n';
 		}
 
@@ -108,15 +124,15 @@ namespace Mesh::FileFormat::Wavefront {
 			file << "usemtl " << p_mesh->material_name[state_material_index] << '\n';
 
 		// Write faces (polygons) to file
-		for ( auto& polygon : p_mesh->polygon ) {
+		for ( auto const& p : p_mesh->polygon ) {
 
 			// Only write texture index if requested and available.
-			bool const f_texture = f_vertex_texture & polygon->is_textured();
+			bool const f_texture = f_vertex_texture & p->is_textured();
 
 			if ( n_material )
 				// Check for material change
-				if ( state_material_index != polygon->material_index ) {
-					state_material_index = polygon->material_index;
+				if ( state_material_index != p->material_index ) {
+					state_material_index = p->material_index;
 					// Test for out of bound material index
 					if ( state_material_index >= n_material )
 						state_material_index = 0;
@@ -124,29 +140,27 @@ namespace Mesh::FileFormat::Wavefront {
 				}
 
 			// Check for smooth change
-			if ( state_smooth != polygon->f_smooth ) {
-				state_smooth = polygon->f_smooth;
+			if ( state_smooth != p->f_smooth ) {
+				state_smooth = p->f_smooth;
 				file << "s " << state_smooth << '\n';
 			}
 
-			// FIXME // TODO
-			// Terrible, terrible hack, this should be done before looping polygons
-			if ( f_vertex_normal && !state_smooth ) {
-				++offset_vertex_normal;
-				file << "vn " << polygon->unit_normal() << '\n';
-			}
+			// Get the index for flat shaded polygon.
+			auto const polygon_normal_index = state_smooth
+				? std::nullopt
+				: normal_list.get_index( p->unit_normal() );
 
 			file << "f";
 			// Polygon vertices
-			for ( auto& edge : polygon->edge ) {
-				auto vertex = p_mesh->index_vertex( edge->vertex );
+			for ( auto const& e : p->edge ) {
+				auto vertex = p_mesh->index_vertex( e->vertex );
 				// Vertex (mandatory)
 				if ( vertex.has_value() ) {
 					file << ' ' << vertex.value() + 1;
 				}
 				// Vertex texture (optional)
 				if ( f_texture ) {
-					auto vt = p_mesh->index_texture( edge->texture );
+					auto vt = p_mesh->index_texture( e->texture );
 					if ( vt.has_value() )
 						file << '/' << vt.value() + 1;
 					else
@@ -159,12 +173,15 @@ namespace Mesh::FileFormat::Wavefront {
 						file << '/';
 
 					if ( state_smooth ) {
-						// Vertex and vertex normal have same index
-						file << '/' << vertex.value() + 1;
+						// Vertex has vertex normal, get the index
+						auto index = normal_list.get_index( e->vertex->normal );
+						if ( index.has_value() )
+							file << '/' << index.value() + 1;
 					}
 					else {
-						// Flat shading
-						file << '/' << offset_vertex_normal;
+						// Flat shading, polygon normal
+						if ( polygon_normal_index.has_value() )
+							file << '/' << polygon_normal_index.value() + 1;
 					}
 				}
 			}
@@ -197,7 +214,7 @@ namespace Mesh::FileFormat::Wavefront {
 		std::unique_ptr<Mesh::HalfEdge> p_mesh = std::make_unique<Mesh::HalfEdge>();
 
 		// Optional vertex normal data (from file)
-		std::vector<Double3> vn; // TODO smart ointer
+		std::vector<Double3> vn;
 
 		// Values that might change during parsing of the file
 		// Face(s) might be marked as smooth (render)
@@ -261,7 +278,7 @@ namespace Mesh::FileFormat::Wavefront {
 			}
 			else if ( token[0] == "vt" ) {
 				// Vertex texture, one value is mandatory, three is supported
-				if ( token.size() < 2 || token.size() > 4 ) {
+				if ( token.size() > 4 ) {
 					std::cout << "Invalid vertex texture: \"" << line << "\"\n";
 					return nullptr;
 				}
@@ -274,7 +291,7 @@ namespace Mesh::FileFormat::Wavefront {
 				Double3 vertex = Double3( x.value(), 0, 0. );
 
 				// Optional y value
-				if ( token.size() == 3 ) {
+				if ( token.size() > 2 ) {
 					auto y = Utility::Decimal( token[2] );
 					if ( y.has_value() )
 						vertex.y = y.value();
@@ -398,7 +415,7 @@ namespace Mesh::FileFormat::Wavefront {
 		} // End of file parsing
 
 		file.close();
-		
+
 		// Clear vertex normal data
 		vn.clear();
 		vn.shrink_to_fit();

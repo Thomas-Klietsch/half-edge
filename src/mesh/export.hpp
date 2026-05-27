@@ -24,6 +24,7 @@
 #include "./../mesh/file_format/common.hpp"
 // Supported file formats
 #include "./../mesh/file_format/stanford.hpp"
+#include "./../mesh/file_format/stl.hpp"
 #include "./../mesh/file_format/wavefront.hpp"
 
 namespace Mesh {
@@ -49,7 +50,7 @@ namespace Mesh {
 		std::string const& file_name,
 		// Can not reference a const
 		std::unique_ptr<Mesh::HalfEdge>& p_mesh,
-		Mesh::Type const file_format,
+		Mesh::FileType const file_format,
 		// If not set to ::Off, will calculate and export vertex normals,
 		// requires that polygon(s) are marked f_smooth=true
 		Mesh::VertexNormal const f_vertex_normal = Mesh::VertexNormal::Weighted,
@@ -71,6 +72,19 @@ namespace Mesh {
 			return false;
 		}
 
+		// STL export handling, it only support vertex location.
+		if ( file_format == Mesh::FileType::STL ) {
+			// Check if data is triangles only.
+			for ( auto const& p : p_mesh->polygon )
+				if ( p->edge.size() != 3 ) {
+					std::cout << "STL export only supports triangles, file: \"" << file_name << "\"\n";
+					return false;
+				}
+			// STL only support polygon normal.
+			bool const f_normal = f_vertex_normal != Mesh::VertexNormal::Off;
+			return Mesh::FileFormat::STL::Export( file_name, p_mesh, f_normal );
+		}
+
 		// Adds a default material, if none are defined.
 		// TODO make this an optional feature?
 		if ( p_mesh->material_name.size() == 0 )
@@ -79,14 +93,13 @@ namespace Mesh {
 		// True if smooth shading (vertex normals) is used.
 		bool const f_smooth = f_vertex_normal != Mesh::VertexNormal::Off;
 
-		// TODO avoid recalculation for multiple exports?
 		if ( f_smooth ) {
-			// Initialise/reset data
+			// Initialise/reset data.
 			for ( auto& v : p_mesh->vertex )
 				v->normal = Double3::Zero;
 
-			// Overwrite flat shading (Stanford does not support mixed shading)
-			bool const f_include_flat = ( file_format == Mesh::Type::Stanford );
+			// Overwrite flat shading (Stanford (.ply) does not support mixed shading).
+			bool const f_include_flat = ( file_format == Mesh::FileType::Stanford );
 
 			switch ( f_vertex_normal ) {
 				default: { break; }
@@ -104,36 +117,36 @@ namespace Mesh {
 					break;
 				}
 				case Mesh::VertexNormal::Area: {
-					for ( auto p : p_mesh->polygon )
+					for ( auto const& p : p_mesh->polygon )
 						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->weighted_normal();
-							for ( auto e : p->edge )
+							for ( auto& e : p->edge )
 								e->vertex->normal += polygon_normal;
 						}
 					break;
 				}
 				case Mesh::VertexNormal::Angle: {
-					for ( auto p : p_mesh->polygon )
+					for ( auto const& p : p_mesh->polygon )
 						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->unit_normal();
-							for ( auto e : p->edge )
+							for ( auto& e : p->edge )
 								e->vertex->normal += polygon_normal * e->angle();
 						}
 					break;
 				}
 				case Mesh::VertexNormal::Weighted: {
-					for ( auto p : p_mesh->polygon )
+					for ( auto const& p : p_mesh->polygon )
 						if ( p->f_smooth || f_include_flat ) {
 							Double3 const polygon_normal = p->weighted_normal();
-							for ( auto e : p->edge )
+							for ( auto& e : p->edge )
 								e->vertex->normal += polygon_normal * e->angle();
 						}
 					break;
 				}
 				case Mesh::VertexNormal::Experimental: {
-					for ( auto p : p_mesh->polygon )
+					for ( auto const& p : p_mesh->polygon )
 						if ( p->f_smooth || f_include_flat ) {
-							for ( auto e : p->edge ) {
+							for ( auto& e : p->edge ) {
 								Double3 const v0 = e->vertex->location;
 								Double3 const v1 = e->next->vertex->location;
 								Double3 const v2 = e->previous->vertex->location;
@@ -145,7 +158,7 @@ namespace Mesh {
 			}
 
 			// Normalise vertex normals
-			for ( auto v : p_mesh->vertex )
+			for ( auto& v : p_mesh->vertex )
 				v->normal = ( v->normal ).normalise();
 		}
 
@@ -161,7 +174,7 @@ namespace Mesh {
 		}
 
 		switch ( file_format ) {
-			case Mesh::Type::Stanford: {
+			case Mesh::FileType::Stanford: {
 				// Stanford does not support mixed texturing.
 				if ( f_texture )
 					// Check if all polygon are textured
@@ -173,10 +186,17 @@ namespace Mesh {
 
 				return Mesh::FileFormat::Stanford::Export( file_name, p_mesh, f_smooth, f_texture );
 			}
-			case Mesh::Type::Wavefront:
+			case Mesh::FileType::STL: {
+				// Should never happen, it is already handled.
+				std::cout << "Fatal error! STL export failed.\n";
+				return false;
+			}
+			case Mesh::FileType::Wavefront:
 				return Mesh::FileFormat::Wavefront::Export( file_name, p_mesh, f_smooth, f_texture );
 		}
 
+		// Should never happen, error in switch().
+		std::cout << "Fatal error! File export failed.\n";
 		return false;
 	};
 

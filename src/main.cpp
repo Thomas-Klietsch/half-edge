@@ -26,16 +26,16 @@
 // Convert of file format, currently only Wavefront is supported
 void ConvertFile() {
 	// Load mesh into half-data, without twin edge validation
-	std::unique_ptr<Mesh::HalfEdge> p_input = Mesh::Import( "input.obj", Mesh::Type::Wavefront, false );
+	std::unique_ptr<Mesh::HalfEdge> p_input = Mesh::Import( "input.obj", Mesh::FileType::Wavefront, false );
 	// Save input to a file
-	Mesh::Export( "test.obj", p_input, Mesh::Type::Wavefront );
+	Mesh::Export( "test.obj", p_input, Mesh::FileType::Wavefront );
 };
 
 // Create a new, minimal, half-edge mesh,
 // with copy of material data from input file
 void MinimalMesh() {
 	// Load mesh into half-data
-	std::unique_ptr<Mesh::HalfEdge> p_input = Mesh::Import( "input.obj", Mesh::Type::Wavefront, false );
+	std::unique_ptr<Mesh::HalfEdge> p_input = Mesh::Import( "input.obj", Mesh::FileType::Wavefront, false );
 
 	// Create work structure, including material data copy
 	std::unique_ptr<Mesh::HalfEdge> p_output = std::make_unique<Mesh::HalfEdge>( p_input );
@@ -58,7 +58,7 @@ void MinimalMesh() {
 	p_output->add_polygon( { edge1, edge2, edge3 }, material_index, f_smooth );
 
 	// Save half-data as Wavefront data
-	if ( !Mesh::Export( "minimal.obj", p_output, Mesh::Type::Wavefront ) )
+	if ( !Mesh::Export( "minimal.obj", p_output, Mesh::FileType::Wavefront ) )
 		std::cout << "Failed to export half edge data.\n";
 };
 
@@ -145,7 +145,7 @@ void ReplacePolygon(
 	p_mesh->clean_up();
 
 	// Save intermediate mesh
-	Mesh::Export( "cube_open.obj", p_mesh, Mesh::Type::Wavefront, Mesh::VertexNormal::Weighted );
+	Mesh::Export( "cube_open.obj", p_mesh, Mesh::FileType::Wavefront, Mesh::VertexNormal::Weighted );
 
 	// Replace the deleted polygon with a triangle fan.
 	std::size_t const n_vertex = vertex.size();
@@ -165,7 +165,27 @@ void ReplacePolygon(
 		std::cout << "Uh oh, something went wrong\n";
 
 	// Save final mesh
-	Mesh::Export( "cube_modified.obj", p_mesh, Mesh::Type::Wavefront, Mesh::VertexNormal::Weighted );
+	Mesh::Export( "cube_modified.obj", p_mesh, Mesh::FileType::Wavefront, Mesh::VertexNormal::Weighted );
+};
+
+void TestFileFormat() {
+	// All test files are closed surfaces
+	auto p_stanford = Mesh::Import( "input.ply", Mesh::FileType::Stanford, true );
+	auto p_stl = Mesh::Import( "input.stl", Mesh::FileType::STL, true );
+	auto p_wavefront = Mesh::Import( "input.obj", Mesh::FileType::Wavefront, true );
+	if ( !p_stanford || !p_stl || !p_wavefront ) {
+		std::cout << "One, or more, test file(s) failed to load.\n";
+		return;
+	}
+
+	// Fail export of quad with triangle only file format.
+	if ( !Mesh::Export( "wavefront.stl", p_wavefront, Mesh::FileType::STL, Mesh::VertexNormal::Weighted, true ) )
+		std::cout << "Export correctly caught unsupported polygon size.\n";
+
+	// Export files, they should be equal to imported files
+	Mesh::Export( "stanford.ply", p_stanford, Mesh::FileType::Stanford, Mesh::VertexNormal::Weighted, true );
+	Mesh::Export( "stl.stl", p_stl, Mesh::FileType::STL, Mesh::VertexNormal::Weighted, true );
+	Mesh::Export( "wavefront.obj", p_wavefront, Mesh::FileType::Wavefront, Mesh::VertexNormal::Weighted, true );
 };
 
 int main(
@@ -183,10 +203,12 @@ int main(
 	}
 
 	// Save half-data (cube) as Wavefront data, with weighted vertex normals
-	if ( !Mesh::Export( "cube.obj", p_mesh, Mesh::Type::Wavefront, Mesh::VertexNormal::Weighted ) )
+	if ( !Mesh::Export( "cube.obj", p_mesh, Mesh::FileType::Wavefront, Mesh::VertexNormal::Weighted ) )
 		std::cout << "Failed to export half edge data.\n";
 
 	ReplacePolygon( p_mesh );
+
+	TestFileFormat();
 
 	return EXIT_SUCCESS;
 };

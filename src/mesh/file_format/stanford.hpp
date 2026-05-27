@@ -30,7 +30,7 @@
 #include "./../../utility/convert.hpp"
 #include "./../../utility/tokenise.hpp"
 
-// Format created Greg Turk (1990)
+// Format created by Greg Turk (1990)
 
 namespace Mesh::FileFormat::Stanford {
 
@@ -48,12 +48,12 @@ namespace Mesh::FileFormat::Stanford {
 		}
 
 		if ( file_name.size() == 0 ) {
-			std::cout << "Stanford::Export file name is missing.\n";
+			std::cout << "Export file name is missing.\n";
 			return false;
 		}
 
 		if ( p_mesh->polygon.size() < 1 || p_mesh->vertex.size() < 3 ) {
-			std::cout << "Not enough data for Stanford export: \"" << file_name << "\"\n";
+			std::cout << "Not enough data for export: \"" << file_name << "\"\n";
 			return false;
 		}
 
@@ -61,7 +61,7 @@ namespace Mesh::FileFormat::Stanford {
 		file.open( file_name, std::ios::trunc );
 		// Check if file is open
 		if ( !file.is_open() ) {
-			std::cout << "Stanford::Export could not open output file: \"" << file_name << "\"\n";
+			std::cout << "Export could not open output file: \"" << file_name << "\"\n";
 			return false;
 		}
 
@@ -105,7 +105,8 @@ namespace Mesh::FileFormat::Stanford {
 
 		// Polygon count and format
 		file << "element face " << p_mesh->polygon.size() << '\n';
-		file << "property list uchar uint vertex_indices\n";
+		// file << "property list uchar uint vertex_indices\n"; // 8bit max vertices
+		file << "property list uint uint vertex_indices\n"; // 32bit max vertices
 
 		// End header
 		file << "end_header\n";
@@ -117,20 +118,20 @@ namespace Mesh::FileFormat::Stanford {
 
 			// Write vertices, using edges from polygons.
 			for ( auto const& p : p_mesh->polygon ) {
-				for ( auto& edge : p->edge ) {
-					file << edge->vertex->location;
+				for ( auto const& e : p->edge ) {
+					file << e->vertex->location;
 					if ( f_vertex_normal )
-						file << ' ' << edge->vertex->normal;
-					file << ' ' << edge->texture->location.x << ' ' << edge->texture->location.y;
+						file << ' ' << e->vertex->normal;
+					file << ' ' << e->texture->location.x << ' ' << e->texture->location.y;
 					file << '\n';
 				}
 			}
 
 			// Write polygons, using edges.
-			std::uint32_t index{ 0 };
+			std::uint64_t index{ 0 };
 			for ( auto const& p : p_mesh->polygon ) {
 				file << p->edge.size();
-				for ( std::uint16_t i{ 0 }; i < p->edge.size(); ++i )
+				for ( std::size_t i{ 0 }; i < p->edge.size(); ++i )
 					file << ' ' << index++;
 				file << '\n';
 			}
@@ -147,8 +148,8 @@ namespace Mesh::FileFormat::Stanford {
 			// Write polygons
 			for ( auto const& p : p_mesh->polygon ) {
 				file << p->edge.size();
-				for ( auto& edge : p->edge ) {
-					auto vertex = p_mesh->index_vertex( edge->vertex );
+				for ( auto const& e : p->edge ) {
+					auto vertex = p_mesh->index_vertex( e->vertex );
 					if ( vertex.has_value() )
 						file << ' ' << vertex.value();
 				}
@@ -208,8 +209,8 @@ namespace Mesh::FileFormat::Stanford {
 		}
 
 		// Number, read from file, of vertices and polygons.
-		std::uint32_t n_vertex{ 0 };
-		std::uint32_t n_polygon{ 0 };
+		std::uint64_t n_vertex{ 0 };
+		std::uint64_t n_polygon{ 0 };
 
 		// State read from file.
 		bool f_vertex_normal{ false };
@@ -243,7 +244,7 @@ namespace Mesh::FileFormat::Stanford {
 
 		} // End of header parsing
 
-		if ( n_vertex < 4 || n_polygon < 1 ) {
+		if ( n_vertex < 3 || n_polygon < 1 ) {
 			std::cout << "Not enough data in file.\n";
 			return nullptr;
 		}
@@ -252,7 +253,7 @@ namespace Mesh::FileFormat::Stanford {
 		std::uint8_t const n_element = 3 + ( f_vertex_normal ? 3 : 0 ) + ( f_vertex_texture ? 2 : 0 );
 
 		// Parse vertex data
-		std::uint32_t c_vertex{ 0 };
+		std::uint64_t c_vertex{ 0 };
 		std::vector<Mesh::Data::Vertex> vertex_list;
 		while ( std::getline( file, line ) ) {
 			auto token = Utility::Tokenise( line, " " );
@@ -316,7 +317,7 @@ namespace Mesh::FileFormat::Stanford {
 		} // End of vertex data
 
 		// Parse polygon data
-		std::uint32_t c_polygon{ 0 };
+		std::uint64_t c_polygon{ 0 };
 		while ( std::getline( file, line ) ) {
 			auto token = Utility::Tokenise( line, " " );
 

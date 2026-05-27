@@ -205,7 +205,7 @@ namespace Mesh {
 			bool const f_connected = true
 		) {
 			// Check for nullptr in list, should never happen
-			for ( auto& e : edge )
+			for ( auto const& e : edge )
 				if ( e == nullptr ) {
 					std::cout << "Fatal error! Connect shared edges.\n";
 					std::cout << "One (or more) edge(s) is a nullptr!\n";
