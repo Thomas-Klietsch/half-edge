@@ -28,7 +28,7 @@ void ConvertFile() {
 	// Load mesh into half-data, without twin edge validation
 	std::unique_ptr<Mesh::HalfEdge> p_input = Mesh::Import( "input.obj", Mesh::FileType::Wavefront, false );
 	// Save input to a file
-	Mesh::Export( "test.obj", p_input, Mesh::FileType::Wavefront );
+	Mesh::Export( "convert.ply", p_input, Mesh::FileType::Stanford );
 };
 
 // Create a new, minimal, half-edge mesh,
