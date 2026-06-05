@@ -134,6 +134,11 @@ namespace Mesh {
 			for ( auto& e : poly->edge ) {
 				// Set poly id on edge
 				e->polygon = poly;
+				// Set hard edge state
+				e->f_static = !f_smooth;
+				// Modify hard edge state for vertex,
+				// A vertex marked static can not be marked smooth.
+				e->vertex->f_static |= !f_smooth;
 				// Add edge to half-edge data
 				edge.emplace_back( e );
 			}
@@ -235,10 +240,13 @@ namespace Mesh {
 							// Define twins
 							edge[i]->twin = edge[k];
 							edge[k]->twin = edge[i];
-							// FIXME set hard edge
+							// Set hard edge
 							bool const f_hard_edge = edge[i]->is_boundary() | edge[k]->is_boundary();
 							edge[i]->f_static = f_hard_edge;
 							edge[k]->f_static = f_hard_edge;
+							// A vertex marked static can not be marked smooth.
+							edge[i]->vertex->f_static |= f_hard_edge;
+							edge[k]->vertex->f_static |= f_hard_edge;
 							break;
 						}
 					}

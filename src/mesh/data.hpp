@@ -117,7 +117,8 @@ namespace Mesh::Data {
 			, texture( p_texture )
 			, f_static( a_static )
 		{
-			vertex->f_static = a_static;
+			// A vertex marked static can not be marked smooth.
+			vertex->f_static |= a_static;
 		};
 
 		// Angle in radiance, between this and previous edge,
