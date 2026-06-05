@@ -6,6 +6,10 @@ Default operation is an unique closed surfaces (all edges are shared by two poly
 
 This project is intended as a minimal implementation of the half edge data structure. Speed and low memory usage is not considered.
 
+##### Extension
+
+Subdivision of polygons, various algorithms, [mesh-subdivision](https://github.com/Thomas-Klietsch/mesh-subdivision).
+
 ##### Usage
 
 Load a Wavefront mesh into half-data:
