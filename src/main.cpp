@@ -41,9 +41,9 @@ void MinimalMesh() {
 	std::unique_ptr<Mesh::HalfEdge> p_output = std::make_unique<Mesh::HalfEdge>( p_input );
 
 	// Add three non-static vertices to half-edge data
-	auto v1 = p_output->add_vertex( Double3( 1, 0, 0 ), false );
-	auto v2 = p_output->add_vertex( Double3( 0, 1, 0 ), false );
-	auto v3 = p_output->add_vertex( Double3( 0, 0, 1 ), false );
+	auto v1 = p_output->add_vertex( Double3( 1, 0, 0 ) );
+	auto v2 = p_output->add_vertex( Double3( 0, 1, 0 ) );
+	auto v3 = p_output->add_vertex( Double3( 0, 0, 1 ) );
 
 	// Create 3 edges, they are not stored in half-edge data,
 	// all are non-static, with no texture, and no polygon id
