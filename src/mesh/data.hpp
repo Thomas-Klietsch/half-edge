@@ -38,7 +38,7 @@ namespace Mesh::Data {
 		Double3 location;
 
 		Texture() {};
-		
+
 		Texture(
 			Double3 const& location
 		)
@@ -56,21 +56,13 @@ namespace Mesh::Data {
 		// Loaded from file if available, and (re)calculated during export.
 		Double3 normal;
 
-		// Setting this to true, will treat the vertex as a boundary.
-		bool f_static{ false };
-
 		Vertex() {};
 
 		Vertex(
-			Double3 const& location,
-			bool const f_static = false
+			Double3 const& location
 		)
 			: location( location )
-			, f_static( f_static )
 		{};
-
-		// True if the vertex is a boundary
-		bool is_boundary() const { return f_static; };
 
 	};
 
@@ -100,7 +92,7 @@ namespace Mesh::Data {
 		std::shared_ptr<Mesh::Data::Edge> twin{ nullptr };
 
 		Edge() {};
-		
+
 		// Create edge from vertex
 		// Optional:
 		//   f_static : true if edge is a crease/hard edge/e.t.c.
@@ -116,10 +108,7 @@ namespace Mesh::Data {
 			, polygon( p_polygon )
 			, texture( p_texture )
 			, f_static( a_static )
-		{
-			// A vertex marked static can not be marked smooth.
-			vertex->f_static |= a_static;
-		};
+		{};
 
 		// Angle in radiance, between this and previous edge,
 		// both edges pointing away from their shared vertex.
@@ -162,7 +151,7 @@ namespace Mesh::Data {
 		bool f_smooth{ false };
 
 		Polygon() {};
-		
+
 		Polygon(
 			std::vector< std::shared_ptr<Mesh::Data::Edge> > const& p_edge,
 			std::uint32_t const material_index = 0,
@@ -196,14 +185,6 @@ namespace Mesh::Data {
 				// therefore underflow is avoided below.
 				edge[i]->previous = edge[( i + n_edge - 1 ) % n_edge];
 			}
-
-			// Process edges for boundary state,
-			// if true update connected vertices
-			for ( auto const& e : edge )
-				if ( e->is_boundary() ) {
-					e->vertex->f_static = true;
-					e->next->vertex->f_static = true;
-				}
 
 			// TODO generate twin edges?
 		};

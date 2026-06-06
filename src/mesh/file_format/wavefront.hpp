@@ -331,7 +331,7 @@ namespace Mesh::FileFormat::Wavefront {
 
 					// No vertex texture (UV) or vertex normal defined yet
 					std::shared_ptr<Mesh::Data::Edge> edge
-						= std::make_shared<Mesh::Data::Edge>( v, false, nullptr, nullptr );
+						= std::make_shared<Mesh::Data::Edge>( v, !parse_state_smooth, nullptr, nullptr );
 
 					if ( vertex.size() == 2 ) {
 						// Vertex texture

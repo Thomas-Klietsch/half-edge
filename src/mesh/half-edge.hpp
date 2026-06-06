@@ -67,15 +67,14 @@ namespace Mesh {
 		// Adds a Double3 to the order vertex vector, if it does not exist.
 		// Return is the memory address of the (added) vertex.
 		std::shared_ptr<Mesh::Data::Vertex>& add_vertex(
-			Double3 const& value,
-			bool const f_static = false
+			Double3 const& value
 		) {
 			// Find lowest index which contain value
 			auto index = std::lower_bound( vertex.begin(), vertex.end(), value, IsLesser<Mesh::Data::Vertex> );
 			// End of list reach, e.g. value is not in the list
 			if ( index == vertex.end() ) {
 				// Everything is less than value, add it at the end
-				vertex.emplace_back( std::make_shared<Mesh::Data::Vertex>( value, f_static ) );
+				vertex.emplace_back( std::make_shared<Mesh::Data::Vertex>( value ) );
 				return vertex[vertex.size() - 1];
 			}
 
@@ -85,10 +84,8 @@ namespace Mesh {
 
 			// Lesser, but not equal; insert it
 			if ( value != vertex[result]->location )
-				vertex.insert( index, std::make_shared<Mesh::Data::Vertex>( value, f_static ) );
+				vertex.insert( index, std::make_shared<Mesh::Data::Vertex>( value ) );
 
-			// Set state, true will override false
-			vertex[result]->f_static |= f_static;
 			return vertex[result];
 		};
 
@@ -136,9 +133,6 @@ namespace Mesh {
 				e->polygon = poly;
 				// Set hard edge state
 				e->f_static = !f_smooth;
-				// Modify hard edge state for vertex,
-				// A vertex marked static can not be marked smooth.
-				e->vertex->f_static |= !f_smooth;
 				// Add edge to half-edge data
 				edge.emplace_back( e );
 			}
@@ -244,9 +238,6 @@ namespace Mesh {
 							bool const f_hard_edge = edge[i]->is_boundary() | edge[k]->is_boundary();
 							edge[i]->f_static = f_hard_edge;
 							edge[k]->f_static = f_hard_edge;
-							// A vertex marked static can not be marked smooth.
-							edge[i]->vertex->f_static |= f_hard_edge;
-							edge[k]->vertex->f_static |= f_hard_edge;
 							break;
 						}
 					}
