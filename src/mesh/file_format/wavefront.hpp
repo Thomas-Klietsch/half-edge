@@ -329,9 +329,10 @@ namespace Mesh::FileFormat::Wavefront {
 
 					auto v = p_mesh->vertex[v_index.value() - 1];
 
-					// No vertex texture (UV) or vertex normal defined yet
+					// No vertex texture (UV) or vertex normal defined yet,
+					// and edge sharp state is unknown (set to false).
 					std::shared_ptr<Mesh::Data::Edge> edge
-						= std::make_shared<Mesh::Data::Edge>( v, !parse_state_smooth, nullptr, nullptr );
+						= std::make_shared<Mesh::Data::Edge>( v, false, nullptr, nullptr );
 
 					if ( vertex.size() == 2 ) {
 						// Vertex texture

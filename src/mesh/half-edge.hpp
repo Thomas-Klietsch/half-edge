@@ -131,8 +131,6 @@ namespace Mesh {
 			for ( auto& e : poly->edge ) {
 				// Set poly id on edge
 				e->polygon = poly;
-				// Set hard edge state
-				e->f_static = !f_smooth;
 				// Add edge to half-edge data
 				edge.emplace_back( e );
 			}
@@ -234,10 +232,11 @@ namespace Mesh {
 							// Define twins
 							edge[i]->twin = edge[k];
 							edge[k]->twin = edge[i];
-							// Set hard edge
-							bool const f_hard_edge = edge[i]->is_boundary() | edge[k]->is_boundary();
-							edge[i]->f_static = f_hard_edge;
-							edge[k]->f_static = f_hard_edge;
+							// Set edge sharp state, if either is sharp
+							if ( edge[i]->is_sharp() || edge[k]->is_sharp() ) {
+								edge[i]->f_sharp = true;
+								edge[k]->f_sharp = true;
+							}
 							break;
 						}
 					}
